@@ -17,10 +17,6 @@ def movingaverage(values, window_size):
     return lfilter(weights,a,values)
 
 
-
-
-
-
 # a universal model, can change parameters for tuning
 def forecast_model(signal):
     forecast_signal = []
@@ -64,7 +60,7 @@ for item in Raw_var_EEG_arr:
     else:
         var_arr.append(var_arr[-1])
 Raw_var_EEG_arr=var_arr
-foreast_EEGvar=forecast_model(Raw_var_EEG_arr)
+forecast_var_EEG_arr=forecast_model(Raw_var_EEG_arr)
 
 
 
@@ -77,18 +73,90 @@ for item in Raw_auto_EEG_arr:
     else:
         value_arr.append(value_arr[-1])
 Raw_auto_EEG_arr=value_arr
-foreast_EEGauto=forecast_model(Raw_auto_EEG_arr)
+forecast_auto_EEG_arr=forecast_model(Raw_auto_EEG_arr)
 
 
 
 
 # ### forecast RRI var
-Raw_var_RRI_arr=read_feature_csv('/fred/oz132/channels/PNES//RRI_ch31_rawvariance_QLD0290_15s_3h.csv')
-foreast_RRIvar=forecast_model(Raw_var_RRI_arr)
+Raw_variance_RRI31_arr=read_feature_csv('/fred/oz132/channels/PNES//RRI_ch31_rawvariance_QLD0290_15s_3h.csv')
+forecast_var_RRI31_arr=forecast_model(Raw_variance_RRI31_arr)
 
 
 
 
 # ### forecast RRI auto
-Raw_auto_RRI_arr=read_feature_csv('/fred/oz132/channels/PNES//RRI_ch31_rawauto_QLD0290_15s_3h.csv')
-foreast_RRIauto=forecast_model(Raw_auto_RRI_arr)
+Raw_auto_RRI31_arr=read_feature_csv('/fred/oz132/channels/PNES//RRI_ch31_rawauto_QLD0290_15s_3h.csv')
+forecast_auto_RRI31_arr=forecast_model(Raw_auto_RRI31_arr)
+
+
+
+
+
+
+# plot forecast signals
+t_window_arr = np.linspace(0, 0 + 0.00416667 * (len(Raw_var_EEG_arr) - 1), len(Raw_var_EEG_arr))
+
+fore_arr_EEGvars = []
+for k in range(81, 82):
+    variance_arr = Raw_var_EEG_arr[0:(19450 + 240 * k)]
+    long_rhythm_var_arr = movingaverage(variance_arr, 240 *6)
+    pyplot.figure(figsize=(6, 3))
+    pyplot.title('EEG variance')
+    pyplot.ylabel('Voltage ($\mathregular{v^2}$)')
+    pyplot.xlabel('Time(h)')
+    pyplot.plot(t_window_arr[240 * 24:(19450 + 240 * k)], long_rhythm_var_arr[240 * 24:], 'orange')
+t = np.linspace(t_window_arr[19450], t_window_arr[19450] + 0.1666667 * (len(forecast_var_EEG_arr) - 1),
+                len(forecast_var_EEG_arr))
+pyplot.plot(t, forecast_var_EEG_arr, 'k', label='forecast EEG var')
+pyplot.legend()
+pyplot.show()
+
+
+
+
+fore_arr_EEGauto = []
+for k in range(81, 82):
+    auto_arr = Raw_auto_EEG_arr[0:(19450 + 240 * k)]
+    long_rhythm_auto_arr = movingaverage(auto_arr, 240 * 6)
+    pyplot.figure(figsize=(6, 3))
+    pyplot.title('EEG autocorrelation')
+    pyplot.xlabel('time(h)')
+    pyplot.plot(t_window_arr[240 * 24:(19450 + 240 * k)], long_rhythm_auto_arr[240 * 24:], 'orange')
+t = np.linspace(t_window_arr[19450], t_window_arr[19450] + 0.1666667 * (len(forecast_auto_EEG_arr) - 1),
+                len(forecast_auto_EEG_arr))
+pyplot.plot(t, forecast_auto_EEG_arr, 'k', label='forecast EEG auto')
+pyplot.legend()
+pyplot.show()
+
+
+fore_arr_RRIvars = []
+for k in range(81, 82):
+    variance_arr = Raw_variance_RRI31_arr[0:(19450 + 240 * k)]
+    long_rhythm_var_arr = movingaverage(variance_arr, 240 * 6)
+    pyplot.figure(figsize=(6, 3))
+    pyplot.title('RRI variance')
+    pyplot.ylabel('Second ($\mathregular{s^2}$)')
+    pyplot.xlabel('Time(h)')
+    pyplot.plot(t_window_arr[240 * 24:(19450 + 240 * k)], long_rhythm_var_arr[240 * 24:], 'orange')
+
+t = np.linspace(t_window_arr[19450], t_window_arr[19450] + 0.1666667 * (len(forecast_var_RRI31_arr) - 1),
+                len(forecast_var_RRI31_arr))
+pyplot.plot(t, forecast_var_RRI31_arr, 'k', label='forecast RRI var')
+pyplot.legend()
+pyplot.show()
+
+fore_arr_RRIautos = []
+save_data_RRIautos = []
+for k in range(81, 82):
+    auto_arr = Raw_auto_RRI31_arr[0:19450 + 240 * k]
+    long_rhythm_auto_arr = movingaverage(auto_arr, 240 * 6)
+    pyplot.figure(figsize=(6, 3))
+    pyplot.title('RRI autocorrelation')
+    pyplot.xlabel('Time(h)')
+    pyplot.plot(t_window_arr[240 * 24:19450 + 240 * k], long_rhythm_auto_arr[240 * 24:], 'orange')
+t = np.linspace(t_window_arr[19450], t_window_arr[19450] + 0.1666667 * (len(forecast_auto_RRI31_arr) - 1),
+                len(forecast_auto_RRI31_arr))
+pyplot.plot(t, forecast_auto_RRI31_arr, 'k', label='forecast RRI auto')
+pyplot.legend()
+pyplot.show()
