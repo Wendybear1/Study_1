@@ -1,0 +1,94 @@
+from __future__ import division
+import numpy as np
+import scipy.signal
+from matplotlib import pyplot
+import math
+from scipy import signal
+from scipy.signal import butter, lfilter,iirfilter
+from scipy.signal import hilbert
+import pandas as pd
+from statsmodels.tsa.api import SARIMAX
+from statsmodels.tsa.api import SARIMAX
+
+
+def movingaverage(values, window_size):
+    weights = (np.ones(window_size))/window_size
+    a=np.ones(1)
+    return lfilter(weights,a,values)
+
+
+
+
+
+
+# a universal model, can change parameters for tuning
+def forecast_model(signal):
+    forecast_signal = []
+    for k in range(27):
+        select_signal = signal[0:(19450 + 240 * 3 * k)]
+        signal_cycle = movingaverage(select_signal, 240 * 6) # 6h cycle
+        shift_signal = signal_cycle[(240 * 6 + 240 * 3 * k):(19450 + 240 * 3 * k)] # change 3h signal each time
+
+        target_arr = []
+        for i in range(450): # determined by the length of signal
+            target_arr.append(shift_signal[i * 40]) # downsampling to 10 min
+        data = target_arr
+
+        my_order = (1, 1, 1) # parameters
+        my_seasonal_order = (1, 1, 1, 144)
+        model = SARIMAX(data, order=my_order, seasonal_order=my_seasonal_order)
+        model_fit = model.fit()
+        forecast_signal.append(model_fit.predict(450, 467))
+
+    return forecast_signal
+
+
+def read_feature_csv(directory):
+    csv_reader = pd.read_csv(directory,
+                             sep=',', header=None)
+    rawfeature = csv_reader.values
+    rawfeature_arr = []
+    for item in rawfeature:
+        rawfeature_arr.append(float(item))
+
+    return rawfeature_arr
+
+
+
+# ### forecast EEG var
+Raw_var_EEG_arr=read_feature_csv('/fred/oz132/channels/PNES/channels/QLD0290_pure/Cz_EEGvariance_QLD0290_15s_3h.csv')
+var_arr=[]
+for item in Raw_var_EEG_arr:
+    if item<1e-8:
+        var_arr.append(item)
+    else:
+        var_arr.append(var_arr[-1])
+Raw_var_EEG_arr=var_arr
+foreast_EEGvar=forecast_model(Raw_var_EEG_arr)
+
+
+
+# ### forecast EEG auto
+Raw_auto_EEG_arr=read_feature_csv('/fred/oz132/channels/PNES/channels/QLD0290_pure/Cz_EEGauto_QLD0290_15s_3h.csv')
+value_arr=[0]
+for item in Raw_auto_EEG_arr:
+    if item<500:
+        value_arr.append(item)
+    else:
+        value_arr.append(value_arr[-1])
+Raw_auto_EEG_arr=value_arr
+foreast_EEGauto=forecast_model(Raw_auto_EEG_arr)
+
+
+
+
+# ### forecast RRI var
+Raw_var_RRI_arr=read_feature_csv('/fred/oz132/channels/PNES//RRI_ch31_rawvariance_QLD0290_15s_3h.csv')
+foreast_RRIvar=forecast_model(Raw_var_RRI_arr)
+
+
+
+
+# ### forecast RRI auto
+Raw_auto_RRI_arr=read_feature_csv('/fred/oz132/channels/PNES//RRI_ch31_rawauto_QLD0290_15s_3h.csv')
+foreast_RRIauto=forecast_model(Raw_auto_RRI_arr)
