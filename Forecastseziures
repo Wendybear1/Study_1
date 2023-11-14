@@ -1,0 +1,90 @@
+from __future__ import division
+import numpy as np
+import scipy.signal
+from scipy.signal import butter, lfilter
+from matplotlib import pyplot
+import math
+from scipy.fftpack import fft, ifft
+from scipy import signal
+from scipy.signal import butter, lfilter, iirfilter, filtfilt
+from scipy.signal import hilbert
+import pandas as pd
+from matplotlib import rc
+
+
+def pro_feature(phase_feature,pro_seizure, pro_nonseizure):
+    bins_number = 18
+    bins = np.linspace(-np.pi, np.pi, bins_number + 1)
+    pro_time = []
+    pro_time_false = []
+
+    for i in range(len(phase_feature)):
+        for j in range(bins_number):
+            if bins[j] <= phase_feature[i] < bins[j + 1]:
+                pro_time_false.append(pro_nonseizure[j])
+                pro_time.append(pro_seizure[j])
+
+    return pro_time, pro_time_false
+
+
+
+
+# calcualte phases of forecasted signal
+# ### predict, forecast data
+var_trans = hilbert(forecast_var_EEG_arr)
+var_phase = np.angle(var_trans)
+phase_forecast_EEGvar = var_phase
+var_trans = hilbert(forecast_auto_EEG_arr)
+var_phase = np.angle(var_trans)
+phase_forecast_EEGauto = var_phase
+var_trans = hilbert(forecast_var_RRI31_arr)
+var_phase = np.angle(var_trans)
+phase_forecast_RRIvar = var_phase
+var_trans = hilbert(forecast_auto_RRI31_arr)
+var_phase = np.angle(var_trans)
+phase_forecast_RRIauto = var_phase
+
+
+# calcualte forecast probabilities
+pro_eegvars_time, pro_eegvars_time_false=pro_feature(phase_forecast_EEGvar)
+pro_eegautos_time, pro_eegautos_time_false=pro_feature(phase_forecast_EEGauto)
+pro_RRIvars_time, pro_RRIvars_time_false=pro_feature(phase_forecast_RRIvar)
+pro_RRIautos_time, pro_RRIautos_time_false=pro_feature(phase_forecast_RRIauto)
+
+
+
+# plot foreacst results
+Pseizureeegvar = 4/19450;
+Pnonseizureeegvar = (19450-4)/19450;
+
+
+# 4 features used
+# Pcombined = []
+# for m in range(len(pro_eegvars_time)):
+#     P1=pro_eegvars_time[m]*Pseizureeegvar*pro_eegautos_time[m]*pro_RRIvars_time[m]*pro_RRIautos_time[m]
+#     P2=Pnonseizureeegvar*(1-pro_eegvars_time_false[m]*pro_eegautos_time_false[m]*pro_RRIvars_time_false[m]*pro_RRIautos_time_false[m])
+#     Pcombined.append(P1/(P1+P2))
+
+
+# 2 selected features used (change for patients)
+Pcombined = []
+for m in range(len(pro_eegvars_time)):
+    P1=pro_eegvars_time[m]*Pseizureeegvar*pro_eegautos_time[m]
+    P2=Pnonseizureeegvar*(1-pro_eegvars_time_false[m]*pro_eegautos_time_false[m])
+    Pcombined.append(P1/(P1+P2))
+
+
+
+pyplot.figure(figsize=(8, 4))
+RRI_timewindow_arr = t_future
+pyplot.plot(RRI_timewindow_arr, Pcombined)
+pyplot.annotate('',xy=(93.82222,np.max(Pcombined)),xytext=(93.82222,np.max(Pcombined)+0.000000000001),arrowprops=dict(facecolor='k',shrink=0.05))
+pyplot.annotate('',xy=(117.80083,np.max(Pcombined)),xytext=(117.80083,np.max(Pcombined)+0.000000000001),arrowprops=dict(facecolor='k',shrink=0.05))
+pyplot.annotate('',xy=(121.36472,np.max(Pcombined)),xytext=(121.36472,np.max(Pcombined)+0.00000000001),arrowprops=dict(facecolor='k',shrink=0.05))
+pyplot.annotate('',xy=(140.3647,np.max(Pcombined)),xytext=(140.3647,np.max(Pcombined)+0.000000000001),arrowprops=dict(facecolor='k',shrink=0.05))
+pyplot.annotate('',xy=(142.20333,np.max(Pcombined)),xytext=(142.20333,np.max(Pcombined)+0.000000000001),arrowprops=dict(facecolor='k',shrink=0.05))
+pyplot.hlines(Th1, RRI_timewindow_arr[0],RRI_timewindow_arr[-1],'r')
+pyplot.title('Forecast seizures')
+pyplot.xlabel('Time(h)')
+pyplot.ylabel('Seizure probability')
+pyplot.show()
