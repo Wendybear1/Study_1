@@ -58,3 +58,295 @@ def movingaverage(values, window_size):
     weights = (np.ones(window_size)) / window_size
     a = np.ones(1)
     return lfilter(weights, a, values)
+
+
+
+# access EEg features
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/Cz_EEGvariance_QLD0290_15s_3h.csv', sep=',',
+                         header=None)
+Raw_variance_EEG = csv_reader.values
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/Cz_EEGauto_QLD0290_15s_3h.csv', sep=',',
+                         header=None)
+Raw_auto_EEG = csv_reader.values
+Raw_variance_EEG_arr = []
+for item in Raw_variance_EEG:
+    Raw_variance_EEG_arr.append(float(item))
+Raw_auto_EEG_arr = []
+for item in Raw_auto_EEG:
+    Raw_auto_EEG_arr.append(float(item))
+
+
+# create time window (15s to hours, 15/3600)
+t_window_arr = np.linspace(0 + 0.00416667, 0 + 0.00416667 + 0.00416667 * (len(Raw_variance_EEG_arr) - 1),
+                len(Raw_variance_EEG_arr))
+window_time_arr = t_window_arr
+
+
+# remove outliers
+var_arr = []
+for item in Raw_variance_EEG_arr:
+    if item < 1e-8:
+        var_arr.append(item)
+    else:
+        var_arr.append(var_arr[-1])
+Raw_variance_EEG = var_arr
+
+# annotate seizure onset times in training
+seizure_timing_index = []
+for k in range(len(window_time_arr)):
+    if window_time_arr[k] < 22.79056 and window_time_arr[k + 1] >= 22.79056:
+        seizure_timing_index.append(k)
+    if window_time_arr[k] < 43.05778 and window_time_arr[k + 1] >= 43.05778:
+        seizure_timing_index.append(k)
+    if window_time_arr[k] < 48.68167 and window_time_arr[k + 1] >= 48.68167:
+        seizure_timing_index.append(k)
+    if window_time_arr[k] < 66.425277 and window_time_arr[k + 1] >= 66.425277:
+        seizure_timing_index.append(k)
+print(seizure_timing_index)
+
+
+
+# First feature:  EEG variance (Procedure is similar for 4 features)
+window_time_arr = t_window_arr[0:19450] # data size
+Raw_variance_EEG = Raw_variance_EEG[0:19450]
+
+# test different cycles
+cycle_list=[1/60,1/12,1,6,12,24] ## 1min, 5min, 1h, 6h, 12h, 24h
+cycle = 6
+short_rhythm_var_arr_plot = movingaverage(Raw_variance_EEG, int(240 * cycle))
+long_rhythm_var_arr = short_rhythm_var_arr_plot * (10 ** 12) # change units
+
+# Hilbert transform
+# synchoronization index for signal phases and phases at seizure onsets
+var_trans = hilbert(long_rhythm_var_arr)
+var_trans_nomal = []
+for m in var_trans:
+    var_trans_nomal.append(m / abs(m))
+SIvarlong = sum(var_trans_nomal) / len(var_trans_nomal)
+print(SIvarlong)
+seizure_phase = []
+for item in seizure_timing_index:
+    seizure_phase.append(var_trans_nomal[item])
+SIvarlongseizure = sum(seizure_phase) / len(seizure_phase)
+print(SIvarlongseizure)
+var_phase = np.angle(var_trans)
+phase_long_EEGvariance_arr = var_phase
+seizure_phase_var_long = []
+for item in seizure_timing_index:
+    seizure_phase_var_long.append(phase_long_EEGvariance_arr[item])
+print(seizure_phase_var_long)
+n=0
+for item in seizure_phase_var_long:
+    if item <0:
+        n=n+1
+print(n/len(seizure_phase_var_long))
+cs_pro_EEGvar=n/len(seizure_phase_var_long)
+
+# phase distribution
+bins_number = 18
+bins = np.linspace(-np.pi, np.pi, bins_number + 1)
+nEEGsvar, _, _ = pyplot.hist(phase_long_EEGvariance_arr, bins)
+nEEGsvarsei, _, _ = pyplot.hist(seizure_phase_var_long, bins)
+print(nEEGsvar)
+print(nEEGsvarsei)
+width = 2 * np.pi / bins_number
+nEEGsvarnonsei=nEEGsvar-nEEGsvarsei
+pro_seizure_EEGvar=nEEGsvarsei/sum(nEEGsvarsei)
+pro_nonseizure_EEGvar=nEEGsvarnonsei/sum(nEEGsvarnonsei)
+
+
+
+
+# Second feature:  EEG autocorelation
+# remove outliers
+value_arr = []
+for item in Raw_auto_EEG_arr:
+    if item < 500:
+        value_arr.append(item)
+    else:
+        value_arr.append(value_arr[-1])
+Raw_auto_EEG_arr = value_arr
+
+
+Raw_auto_EEG = Raw_auto_EEG_arr[0:19450]
+window_time_arr = t_window_arr[0:19450]
+
+short_rhythm_value_arr_plot = movingaverage(Raw_auto_EEG, int(240 * cycle))
+long_rhythm_value_arr = short_rhythm_value_arr_plot
+
+value_trans = hilbert(long_rhythm_value_arr)
+value_trans_nomal = []
+for m in value_trans:
+    value_trans_nomal.append(m / abs(m))
+SIvaluelong = sum(value_trans_nomal) / len(value_trans_nomal)
+print(SIvaluelong)
+seizure_phase = []
+for item in seizure_timing_index:
+    seizure_phase.append(value_trans_nomal[item])
+SIvaluelongseizure = sum(seizure_phase) / len(seizure_phase)
+print(SIvaluelongseizure)
+value_phase = np.angle(value_trans)
+phase_long_EEGauto_arr = value_phase
+seizure_phase_value_long = []
+for item in seizure_timing_index:
+    seizure_phase_value_long.append(phase_long_EEGauto_arr[item])
+print(seizure_phase_value_long)
+n=0
+for item in seizure_phase_value_long:
+    if item <0:
+        n=n+1
+print(n/len(seizure_phase_value_long))
+cs_pro_EEGauto=n/len(seizure_phase_value_long)
+bins_number = 18
+bins = np.linspace(-np.pi, np.pi, bins_number + 1)
+nEEGsauto, _, _ = pyplot.hist(phase_long_EEGauto_arr, bins)
+nEEGsautosei, _, _ = pyplot.hist(seizure_phase_value_long, bins)
+print(nEEGsauto)
+print(nEEGsautosei)
+nEEGsautononsei=nEEGsauto-nEEGsautosei
+pro_seizure_EEGauto=nEEGsautosei/sum(nEEGsautosei)
+pro_nonseizure_EEGauto=nEEGsautononsei/sum(nEEGsautononsei)
+
+
+
+
+
+# Access RRI features
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/RRI_ch31_timewindowarr_QLD0290_15s_3h.csv',sep=',', header=None)
+rri_t = csv_reader.values
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/RRI_ch31_rawvariance_QLD0290_15s_3h.csv',sep=',', header=None)
+RRI_var = csv_reader.values
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/RRI_ch31_rawauto_QLD0290_15s_3h.csv', sep=',',header=None)
+Raw_auto_RRI31 = csv_reader.values
+rri_t_arr = []
+for item in rri_t:
+    rri_t_arr.append(0 + float(item))
+Raw_variance_RRI31_arr = []
+for item in RRI_var:
+    Raw_variance_RRI31_arr.append(float(item))
+Raw_auto_RRI31_arr = []
+for item in Raw_auto_RRI31:
+    Raw_auto_RRI31_arr.append(float(item))
+print(len(Raw_variance_RRI31_arr))
+
+
+
+# Third feature:  RRI variance
+window_time_arr = t_window_arr[0:19450]
+Raw_variance_RRI31 = Raw_variance_RRI31_arr[0:19450]
+
+short_rhythm_var_arr_plot = movingaverage(Raw_variance_RRI31, int(240 * cycle))
+long_rhythm_var_arr = short_rhythm_var_arr_plot
+
+var_trans = hilbert(long_rhythm_var_arr)
+var_trans_nomal = []
+for m in var_trans:
+    var_trans_nomal.append(m / abs(m))
+SIvarlong = sum(var_trans_nomal) / len(var_trans_nomal)
+print(SIvarlong)
+seizure_phase = []
+for item in seizure_timing_index:
+    seizure_phase.append(var_trans_nomal[item])
+SIvarlongseizure = sum(seizure_phase) / len(seizure_phase)
+print(SIvarlongseizure)
+var_phase = np.angle(var_trans)
+phase_whole_long = var_phase
+seizure_phase_var_long = []
+for item in seizure_timing_index:
+    seizure_phase_var_long.append(phase_whole_long[item])
+print(seizure_phase_var_long)
+n=0
+for item in seizure_phase_var_long:
+    if item <0:
+        n=n+1
+print(n/len(seizure_phase_var_long))
+cs_pro_RRIvar=n/len(seizure_phase_var_long)
+
+bins_number = 18
+bins = np.linspace(-np.pi, np.pi, bins_number + 1)
+nRRIsvar, _, _ = pyplot.hist(phase_whole_long, bins)
+nRRIsvarsei, _, _ = pyplot.hist(seizure_phase_var_long, bins)
+print(nRRIsvar)
+print(nRRIsvarsei)
+nRRIsvarnonsei=nRRIsvar-nRRIsvarsei
+pro_seizure_RRIvar=nRRIsvarsei/sum(nRRIsvarsei)
+pro_nonseizure_RRIvar=nRRIsvarnonsei/sum(nRRIsvarnonsei)
+
+
+
+
+
+
+# fourth feature:  RRI autocorrelation
+Raw_auto_RRI31 = Raw_auto_RRI31_arr[0:19450]
+
+short_rhythm_value_arr_plot = movingaverage(Raw_auto_RRI31, int(240 * cycle))
+long_rhythm_value_arr = short_rhythm_value_arr_plot
+
+value_trans = hilbert(long_rhythm_value_arr)
+value_trans_nomal = []
+for m in value_trans:
+    value_trans_nomal.append(m / abs(m))
+SIvaluelong = sum(value_trans_nomal) / len(value_trans_nomal)
+print(SIvaluelong)
+seizure_phase = []
+for item in seizure_timing_index:
+    seizure_phase.append(value_trans_nomal[item])
+SIvaluelongseizure = sum(seizure_phase) / len(seizure_phase)
+print(SIvaluelongseizure)
+value_phase = np.angle(value_trans)
+phase_whole_value_long = value_phase
+seizure_phase_value_long = []
+for item in seizure_timing_index:
+    seizure_phase_value_long.append(phase_whole_value_long[item])
+print(seizure_phase_value_long)
+n=0
+for item in seizure_phase_value_long:
+    if item <0:
+        n=n+1
+print(n/len(seizure_phase_value_long))
+cs_pro_RRIauto=n/len(seizure_phase_value_long)
+
+bins_number = 18
+bins = np.linspace(-np.pi, np.pi, bins_number + 1)
+nRRIsauto, _, _ = pyplot.hist(phase_whole_value_long, bins)
+nRRIsautosei, _, _ = pyplot.hist(seizure_phase_value_long, bins)
+print(nRRIsauto)
+print(nRRIsautosei)
+nRRIsautononsei=nRRIsauto-nRRIsautosei
+pro_seizure_RRIauto=nRRIsautosei/sum(nRRIsautosei)
+pro_nonseizure_RRIauto=nRRIsautononsei/sum(nRRIsautononsei)
+
+
+
+
+# Fifth feature:  circadian
+t = np.linspace(0 + 0.00416667, 0 + 0.00416667 + 0.00416667 * (len(Raw_variance_EEG_arr) - 1),
+                len(Raw_variance_EEG_arr))
+window_time_arr = t
+a = np.where(t < 9.4505556 + 0) # start time
+print(a);
+print(t[2268]);print(t[2269]);
+t[0:2268] = t[0:2268] - 0 + 14.5494444
+t[2268:] = t[2268:] - 9.4505556+0 - 0
+print(t[2268]);print(t[0])
+
+time_feature_arr = []
+for i in range(len(t)):
+    if t[i] > 24:
+        time_feature_arr.append(t[i] - (t[i] // 24) * 24)
+    else:
+        time_feature_arr.append(t[i])
+seizure_time = [time_feature_arr[5468], time_feature_arr[10332], time_feature_arr[11682], time_feature_arr[15941],
+                ]
+print(seizure_time)
+
+bins_number = 18
+bins = np.linspace(0, 24, bins_number + 1)
+ntimes, _, _ = pyplot.hist(time_feature_arr[0:19450], bins)
+ntimesei, _, _ = pyplot.hist(seizure_time, bins)
+print(ntimes)
+print(ntimesei)
+ncircadiannonsei=ntimes-ntimesei
+pro_seizure_circadian=ntimesei/sum(ntimesei)
+pro_nonseizure_circadian=ncircadiannonsei/sum(ncircadiannonsei)
