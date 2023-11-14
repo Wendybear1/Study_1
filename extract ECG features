@@ -1,1 +1,148 @@
+from __future__ import division
+import mne
+import numpy as np
+import scipy.signal
+from scipy.signal import butter, lfilter
+import math
+from scipy.fftpack import fft, ifft
+from scipy import signal
+from scipy.signal import butter, lfilter, iirfilter, filtfilt
+import pandas as pd
+import csv
+from biosppy.signals import ecg
+from matplotlib import pyplot
+from six.moves import range, zip
+import scipy.signal as ss
+
+import os
+
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    return b, a
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+def Implement_Notch_Filter(fs, band, freq, ripple, order, filter_type, data):
+    nyq  = fs/2.0
+    low  = freq - band/2.0
+    high = freq + band/2.0
+    low  = low/nyq
+    high = high/nyq
+    b, a = iirfilter(order, [low, high], rp=ripple, btype='bandstop',analog=False, ftype=filter_type)
+    filtered_data = lfilter(b, a, data)
+    return filtered_data
+def movingaverage(values, window_size):
+    weights = (np.ones(window_size))/window_size
+    a=np.ones(1)
+    return lfilter(weights,a,values)
+def split(arr, size):
+    arrs = []
+    while len(arr) > size:
+        pice = arr[:(size+1)]
+        arrs.append(pice)
+        arr = arr[size:]
+    arrs.append(arr)
+    return arrs
+
+
+
+directory = r'/fred/oz132/QLD2982'
+
+
+# access ECG data (3 channels)
+target_signal_arr_ch1 = []
+target_signal_arr_ch2 = []
+target_signal_arr_ch3 = []
+dir_list = list(os.scandir(directory))
+dir_list.sort(key=lambda d:d.path)
+for entry in dir_list:
+    if (entry.path.endswith("ECG.edf")
+            or entry.path.endswith("ECG.edf")) and entry.is_file():
+                raw_ecg = mne.io.read_raw_edf(entry.path, preload=True)
+                target_signal_1 = raw_ecg._data[0]
+                target_signal_2 = raw_ecg._data[1]
+                target_signal_3 = raw_ecg._data[2]
+                target_signal_arr_ch1 = target_signal_arr_ch1 + list(target_signal_1)
+                target_signal_arr_ch2 = target_signal_arr_ch2 + list(target_signal_2)
+                target_signal_arr_ch3 = target_signal_arr_ch3 + list(target_signal_3)
+subtract_3_1 = np.array(target_signal_arr_ch3) - np.array(target_signal_arr_ch1)
+subtract_2_1 = np.array(target_signal_arr_ch2) - np.array(target_signal_arr_ch1)
+
+
+
+# extract R peaks
+signal = subtract_3_1
+divsignal_arr = split(signal, 256 * 15)
+rpeaks_31_arr = []
+for i in range(len(divsignal_arr)):
+        target_signal_arr = divsignal_arr[i]
+        ts_31, filtered_31, rpeaks_31 = ecg.ecg(signal=target_signal_arr, sampling_rate=256, show=False)[:3]
+        rpeaks_31_arr.append(rpeaks_31 + 256 * 15 * i)
+
+
+# calculate  RRI variancen and autocorrelation in channel3-1
+RRI_arr31_arr = [0]
+t_arr31 = []
+t_window_arr= []
+variance_arr = []
+value_arr =[]
+value_lag_arr=[]
+for item in rpeaks_31_arr:
+    RRI_arr31 = []
+    if len(item)==1 or len(item)==0:
+            RRI_arr31.append(RRI_arr31_arr[-1])
+            t_arr31.append(item / (256*3600))
+    else:
+        for j in range(len(item) - 1):
+            RRI_arr31.append((item[j + 1] - item[j]) / 256)
+            t_arr31.append(item[j + 1] / (256*3600))
+    RRI_arr31_modified=[]
+    for m in range(len(RRI_arr31)):
+        if RRI_arr31[m]<= 1.5 and RRI_arr31[m] >= 0.333:
+            RRI_arr31_modified.append(RRI_arr31[m])
+        else:
+            if m == 0:
+                RRI_arr31_modified.append(RRI_arr31_arr[-1])
+                m = m + 1
+            else:
+                RRI_arr31_modified.append(RRI_arr31_modified[-1])
+                m= m + 1
+    RRI_arr31_arr=RRI_arr31_arr+list(RRI_arr31_modified)
+
+    x = RRI_arr31_modified
+    y = RRI_arr31_modified - np.mean(RRI_arr31_modified)
+    target_signal_std = np.std(RRI_arr31_modified)
+    target_signal_var = target_signal_std ** 2
+    variance_arr.append(target_signal_var)
+    if target_signal_std==0:
+        value_arr.append(value_arr[-1])
+    else:
+        y = y / target_signal_std
+        y = y.flatten()
+        R = np.correlate(y, y, mode='full')/len(y)
+        for k in range(len(R)):
+            if R[k] < 0.5 * R.max():
+                k = k + 1
+            else:
+                indice1 = k
+                indice2 = len(R) - indice1
+                value = indice2 - indice1
+                value_arr.append(value)
+                break
+        for k in range(len(R)):
+            if R[k] == R.max():
+                value_lag_arr.append(R[k+1])
+    if len(item)!=0:
+        t_window_arr.append(item[-1]/(256*3600))
+
+
+np.savetxt("rawRRI_ch31_QLD2982_15s_3h.csv", RRI_arr31_arr, delimiter=",", fmt='%s')
+np.savetxt("rawRRI_ch31_timearr_QLD2982_15s_3h.csv", t_arr31, delimiter=",", fmt='%s')
+np.savetxt("RRI_ch31_timewindowarr_QLD2982_15s_3h.csv", t_window_arr, delimiter=",", fmt='%s')
+np.savetxt("RRI_ch31_rawvariance_QLD2982_15s_3h.csv", variance_arr, delimiter=",", fmt='%s')
+np.savetxt("RRI_ch31_rawauto_QLD2982_15s_3h.csv", value_arr, delimiter=",", fmt='%s')
 
