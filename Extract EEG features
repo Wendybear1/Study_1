@@ -1,0 +1,57 @@
+import os
+channel_arr = []
+channel_arr_2 = []
+channel_arr_3 = []
+channel_arr_4 = []
+channel_arr_5 = []
+directory =r'/fred/oz132/QLD2982'
+dir_list = list(os.scandir(directory))
+dir_list.sort(key=lambda d:d.path)
+for entry in dir_list:
+    if (entry.path.endswith("EEG.edf")
+        or entry.path.endswith("EEG.edf")) and entry.is_file():
+            raw_eeg = mne.io.read_raw_edf(entry.path, preload=True)
+            target_signal = list(raw_eeg._data[20])
+            channel_arr = channel_arr + target_signal
+            # target_signal_2 = list(raw_eeg._data[1])
+            # channel_arr_2 = channel_arr_2 + target_signal_2
+            # target_signal_3 = list(raw_eeg._data[2])
+            # channel_arr_3 = channel_arr_3 + target_signal_3
+            # target_signal_4 = list(raw_eeg._data[3])
+            # channel_arr_4 = channel_arr_4 + target_signal_4
+            # target_signal_5 = list(raw_eeg._data[5])
+            # channel_arr_5 = channel_arr_5 + target_signal_5
+
+
+ch_filtered = butter_bandpass_filter(channel_arr, 1, 30, 256, order=5)
+ch_notch = Implement_Notch_Filter(256, 5, 50, 3, 5, 'butter', ch_filtered)
+signal=ch_notch
+divsignal_arr=split(signal,256*15)
+target_signal_arr=[]
+for i in range(len(divsignal_arr)):
+    target_signal_arr.append(divsignal_arr[i][0:256*15])
+value_arr=[]
+variance_arr=[]
+value_lag_arr=[]
+for k in range(len(target_signal_arr)):
+    x = target_signal_arr[k]
+    y = target_signal_arr[k] - target_signal_arr[k].mean()
+    target_signal_std = np.std(target_signal_arr[k])
+    target_signal_var=target_signal_std**2
+    variance_arr.append(target_signal_var)
+    y = y / target_signal_std
+    R = np.correlate(y, y, mode='full')/len(x)
+    for k in range(len(R)):
+        if R[k] < 0.5 * R.max():
+            k = k + 1
+        else:
+            indice1 = k
+            indice2 = len(R) - indice1
+            value = indice2 - indice1
+            value_arr.append(value)
+            break
+    for k in range(len(R)):
+        if R[k] == R.max():
+            value_lag_arr.append(R[k+1])
+np.savetxt("/home/wxiong/seer_remote/Cz_EEGvariance_QLD2982_15s_3h.csv", variance_arr, delimiter=",", fmt='%s')
+np.savetxt("/home/wxiong/seer_remote/Cz_EEGautoQLD2982_15s_3h.csv", value_arr, delimiter=",", fmt='%s')
