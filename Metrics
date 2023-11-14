@@ -1,0 +1,189 @@
+from __future__ import division
+import numpy as np
+import scipy.signal
+from matplotlib import pyplot
+import math
+from scipy.fftpack import fft, ifft
+from scipy import signal
+from scipy.signal import hilbert
+from scipy.signal import butter, lfilter, iirfilter,filtfilt
+import pandas as pd
+import os
+from matplotlib import rc
+from sklearn.metrics import auc
+
+
+def split(arr, size):
+    arrs = []
+    while len(arr) > size:
+        pice = arr[:size]
+        arrs.append(pice)
+        arr = arr[size:]
+    arrs.append(arr)
+    return arrs
+
+
+
+# calculate metrics(sensitivity, False postive, AUC)
+Pcombined_X=Pcombined  # forecast combined probabilities
+Pcombined=split(Pcombined,6)
+print(len(Pcombined))
+
+Sen=[]; FPR=[];
+seizure_count_test=len([93.82222,117.80083,121.36472,140.3647]) # seizure onset times in testing 
+
+index=[]
+for i in range(len(Pcombined)):
+    for item in Pcombined[i]:
+        if item >= Th1:
+            index.append(6*i+0)
+print(RRI_timewindow_arr[index])
+a=np.unique(RRI_timewindow_arr[index])
+print(a); print(len(a))
+time_arr=[93.82222,117.80083,121.36472,140.3647]
+k1=0
+n_arr=[]
+pretime=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k1=k1+1
+            n_arr.append(n)
+            pretime.append(m-n)
+print(k1)
+time_arr = [93.82222,117.80083,121.36472,140.3647,142.20333] # consider clusters
+k2=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k2=k2+1
+            n_arr.append(n)
+print(k2)
+Sen.append(k1/seizure_count_test)
+FPR.append((len(a)-k2)/len(Pcombined))
+index=[]
+for i in range(len(Pcombined)):
+    for item in Pcombined[i]:
+        if item >= 0.3*Th1:
+            index.append(6*i+0)
+print(RRI_timewindow_arr[index])
+a=np.unique(RRI_timewindow_arr[index])
+print(a); print(len(a))
+time_arr=[93.82222,117.80083,121.36472,140.3647]
+k1=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k1=k1+1
+            n_arr.append(n)
+            pretime.append(m - n)
+print(k1)
+time_arr = [93.82222,117.80083,121.36472,140.3647,142.20333]
+k2=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k2=k2+1
+            n_arr.append(n)
+print(k2)
+Sen.append(k1/seizure_count_test)
+FPR.append((len(a)-k2)/len(Pcombined))
+index=[]
+for i in range(len(Pcombined)):
+    for item in Pcombined[i]:
+        if item >= 0.6*Th1:
+            index.append(6*i+0)
+print(RRI_timewindow_arr[index])
+a=np.unique(RRI_timewindow_arr[index])
+print(a); print(len(a))
+time_arr=[93.82222,117.80083,121.36472,140.3647]
+k1=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k1=k1+1
+            n_arr.append(n)
+            pretime.append(m - n)
+print(k1)
+time_arr = [93.82222,117.80083,121.36472,140.3647,142.20333]
+k2=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k2=k2+1
+            n_arr.append(n)
+print(k2)
+Sen.append(k1/seizure_count_test)
+FPR.append((len(a)-k2)/len(Pcombined))
+index=[]
+for i in range(len(Pcombined)):
+    for item in Pcombined[i]:
+        if item >= 1.2*Th1:
+            index.append(6*i+0)
+print(RRI_timewindow_arr[index])
+a=np.unique(RRI_timewindow_arr[index])
+print(a); print(len(a))
+time_arr=[93.82222,117.80083,121.36472,140.3647]
+k1=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k1=k1+1
+            n_arr.append(n)
+            pretime.append(m - n)
+print(k1)
+time_arr =[93.82222,117.80083,121.36472,140.3647,142.20333]
+k2=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k2=k2+1
+            n_arr.append(n)
+print(k2)
+Sen.append(k1/seizure_count_test)
+FPR.append((len(a)-k2)/len(Pcombined))
+index=[]
+for i in range(len(Pcombined)):
+    for item in Pcombined[i]:
+        if item >= 2*Th1:
+            index.append(6*i+0)
+print(RRI_timewindow_arr[index])
+a=np.unique(RRI_timewindow_arr[index])
+print(a); print(len(a))
+time_arr=[93.82222,117.80083,121.36472,140.3647]
+k1=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k1=k1+1
+            n_arr.append(n)
+            pretime.append(m - n)
+print(k1)
+time_arr = [93.82222,117.80083,121.36472,140.3647,142.20333]
+k2=0
+n_arr=[]
+for m in time_arr:
+    for n in a:
+        if m-n<=1 and m-n>=0:
+            k2=k2+1
+            n_arr.append(n)
+print(k2)
+Sen.append(k1/seizure_count_test)
+FPR.append((len(a)-k2)/len(Pcombined))
+print(pretime)
+print(np.mean(pretime))
+
+print(Sen);print(FPR);
+print(np.mean(Sen));print(np.mean(FPR));
+Sen.append(0);Sen.append(1);
+FPR.append(0);FPR.append(1);
+print('computed AUC using sklearn.metrics.auc: {}'.format(auc(sorted(FPR),sorted(Sen))))
+AUC=auc(sorted(FPR),sorted(Sen))
