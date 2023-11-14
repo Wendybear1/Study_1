@@ -1,0 +1,144 @@
+from __future__ import division
+import numpy as np
+import scipy.signal
+from scipy.signal import butter, lfilter
+from matplotlib import pyplot
+import math
+from scipy.fftpack import fft, ifft
+from scipy import signal
+from scipy.signal import butter, lfilter, iirfilter, filtfilt
+from scipy.signal import hilbert
+
+import pandas as pd
+from matplotlib import rc
+
+
+
+def pro_feature(phase_feature,pro_seizure, pro_nonseizure):
+    bins_number = 18
+    bins = np.linspace(-np.pi, np.pi, bins_number + 1)
+    pro_time = []
+    pro_time_false = []
+
+    for i in range(len(phase_feature)):
+        for j in range(bins_number):
+            if bins[j] <= phase_feature[i] < bins[j + 1]:
+                pro_time_false.append(pro_nonseizure[j])
+                pro_time.append(pro_seizure[j])
+
+    return pro_time, pro_time_false
+
+
+def movingaverage(values, window_size):
+    weights = (np.ones(window_size)) / window_size
+    a = np.ones(1)
+    return lfilter(weights, a, values)
+
+
+
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/Cz_EEGvariance_QLD0290_15s_3h.csv', sep=',',
+                         header=None)
+Raw_variance_EEG = csv_reader.values
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/Cz_EEGauto_QLD0290_15s_3h.csv', sep=',',
+                         header=None)
+Raw_auto_EEG = csv_reader.values
+Raw_variance_EEG_arr = []
+for item in Raw_variance_EEG:
+    Raw_variance_EEG_arr.append(float(item))
+Raw_auto_EEG_arr = []
+for item in Raw_auto_EEG:
+    Raw_auto_EEG_arr.append(float(item))
+
+
+
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/RRI_ch31_rawvariance_QLD0290_15s_3h.csv',
+                         sep=',', header=None)
+RRI_var = csv_reader.values
+csv_reader = pd.read_csv('C:/Users/wxiong/Documents/PHD/2011.1/QLD0290/RRI_ch31_rawauto_QLD0290_15s_3h.csv', sep=',',
+                         header=None)
+Raw_auto_RRI31 = csv_reader.values
+Raw_variance_RRI31_arr = []
+for item in RRI_var:
+    Raw_variance_RRI31_arr.append(float(item))
+Raw_auto_RRI31_arr = []
+for item in Raw_auto_RRI31:
+    Raw_auto_RRI31_arr.append(float(item))
+
+
+
+# extract cycles from raw features, and calculate its phases
+cycle=6
+long_rhythm_var_arr= movingaverage(Raw_variance_EEG, int(240 * cycle))
+var_trans = hilbert(long_rhythm_var_arr)
+var_phase = np.angle(var_trans)
+phase_long_EEGvariance_arr = var_phase
+
+long_rhythm_value_arr = movingaverage(Raw_auto_EEG, int(240 * cycle))
+value_trans = hilbert(long_rhythm_value_arr)
+value_phase = np.angle(value_trans)
+phase_long_EEGauto_arr = value_phase
+
+long_rhythm_RRIvar_arr = movingaverage(Raw_variance_RRI31_arr, int(240 * cycle))
+var_trans = hilbert(long_rhythm_RRIvar_arr)
+var_phase = np.angle(var_trans)
+phase_long_RRIvar_arr = var_phase
+
+long_rhythm_RRIvalue_arr = movingaverage(Raw_auto_RRI31_arr, int(240 * cycle))
+value_trans = hilbert(long_rhythm_RRIvalue_arr)
+value_phase = np.angle(value_trans)
+phase_long_RRIauto_arr = value_phase
+
+
+# phase distributions have been derived.
+pro_eegvars_time, pro_eegvars_time_false=pro_feature(phase_long_EEGvariance_arr,pro_seizure_EEGvar, pro_nonseizure_EEGvar)
+pro_eegautos_time, pro_eegautos_time_false=pro_feature(phase_long_EEGauto_arr,pro_seizure_EEGauto, pro_nonseizure_EEGauto)
+pro_RRIvars_time, pro_RRIvars_time_false=pro_feature(phase_long_RRIvar_arr, pro_seizure_RRIvar, pro_nonseizure_RRIvar)
+pro_RRIautos_time, pro_RRIautos_time_false=pro_feature(phase_long_RRIauto_arr, pro_seizure_RRIauto, pro_nonseizure_RRIauto)
+
+
+
+
+Pseizureeegvar = 4/19450;
+Pnonseizureeegvar = (19450-4)/19450;
+t = np.linspace(0 + 0.00416667, 0 + 0.00416667 + 0.00416667 * (len(Raw_variance_EEG) - 1), len(Raw_variance_EEG))
+window_time_arr = t
+
+# 4 features are selected
+# Pcombined = []
+# for m in range(len(pro_eegvars_time)):
+#     P1=pro_eegvars_time[m]*Pseizureeegvar*pro_eegautos_time[m]*pro_RRIvars_time[m]*pro_RRIautos_time[m]
+#     P2=Pnonseizureeegvar*(1-pro_eegvars_time_false[m]*pro_eegautos_time_false[m]*pro_RRIvars_time_false[m]*pro_RRIautos_time_false[m])
+#     Pcombined.append(P1/(P1+P2))
+
+# 2 features are selected 
+Pcombined = []
+for m in range(len(pro_RRIvars_time)):
+    P1=pro_eegvars_time[m]*Pseizureeegvar*pro_eegautos_time[m]
+    P2=Pnonseizureeegvar*(1-pro_eegvars_time_false[m]*pro_eegautos_time_false[m])
+    Pcombined.append(P1/(P1+P2))
+
+
+pyplot.figure(figsize=(12, 5))
+pyplot.plot(window_time_arr, Pcombined)
+pyplot.title('Combined probability in QLD0290', fontsize=15)
+pyplot.annotate('', xy=(22.79056, np.max(Pcombined)), xytext=(22.79056, np.max(Pcombined) + 0.00000000001),
+                arrowprops=dict(facecolor='black', shrink=0.05))
+pyplot.annotate('', xy=(43.05778, np.max(Pcombined)), xytext=(43.05778, np.max(Pcombined) + 0.00000000001),
+                arrowprops=dict(facecolor='black', shrink=0.05))
+pyplot.annotate('', xy=(48.68167, np.max(Pcombined)), xytext=(48.68167, np.max(Pcombined) + 0.00000000001),
+                arrowprops=dict(facecolor='black', shrink=0.05))
+pyplot.annotate('', xy=(66.425277, np.max(Pcombined)), xytext=(66.425277, np.max(Pcombined) + 0.00000000001),
+                arrowprops=dict(facecolor='black', shrink=0.05))
+pyplot.tight_layout()
+pyplot.xlabel('Time(h)', fontsize=15)
+pyplot.ylabel('seizure probability', fontsize=15)
+pyplot.show()
+
+# combine the probability and determine the threshold
+pro=[]
+for item in seizure_timing_index:
+    pro.append(float(Pcombined[item]))
+    print(Pcombined[item])
+print(pro)
+Th1=np.min(pro)
+print(Th1)
